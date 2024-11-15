@@ -1,45 +1,66 @@
 const fs = require('fs');
-const path = './data/products.json';
+const path = require('path');
 
 class ProductManager {
-  static getProducts() {
-    const data = fs.readFileSync(path);
-    return JSON.parse(data);
-  }
-
-  static saveProducts(products) {
-    fs.writeFileSync(path, JSON.stringify(products, null, 2));
-  }
-
-  static addProduct(product) {
-    const products = this.getProducts();
-    product.id = products.length ? products[products.length - 1].id + 1 : 1;
-    products.push(product);
-    this.saveProducts(products);
-    return product;
-  }
-
-  static getProductById(id) {
-    return this.getProducts().find((product) => product.id === id);
-  }
-
-  static updateProduct(id, updatedFields) {
-    const products = this.getProducts();
-    const index = products.findIndex((product) => product.id === id);
-    if (index !== -1) {
-      products[index] = { ...products[index], ...updatedFields };
-      this.saveProducts(products);
-      return products[index];
+    constructor(filePath) {
+        this.filePath = filePath || path.join(__dirname, '../data/products.json');
     }
-    return null;
-  }
 
-  static deleteProduct(id) {
-    const products = this.getProducts();
-    const newProducts = products.filter((product) => product.id !== id);
-    this.saveProducts(newProducts);
-    return newProducts;
-  }
+    // Leer productos del archivo JSON
+    async getProducts() {
+        try {
+            const data = await fs.promises.readFile(this.filePath, 'utf-8');
+            return JSON.parse(data);
+        } catch (error) {
+            if (error.code === 'ENOENT') {
+                // Si el archivo no existe, devolver una lista vacía
+                return [];
+            }
+            throw error;
+        }
+    }
+
+    // Leer productos de forma sincrónica
+    getProductsSync() {
+        try {
+            const data = fs.readFileSync(this.filePath, 'utf-8');
+            return JSON.parse(data);
+        } catch (error) {
+            if (error.code === 'ENOENT') {
+                return [];
+            }
+            throw error;
+        }
+    }
+
+    // Agregar un nuevo producto al archivo JSON
+    async addProduct(product) {
+        const products = await this.getProducts();
+
+        // Generar un nuevo ID único
+        const newProduct = {
+            id: products.length > 0 ? products[products.length - 1].id + 1 : 1,
+            ...product,
+        };
+
+        products.push(newProduct);
+
+        await fs.promises.writeFile(this.filePath, JSON.stringify(products, null, 2));
+        return newProduct;
+    }
+
+    // Eliminar un producto por ID
+    async deleteProduct(id) {
+        const products = await this.getProducts();
+        const updatedProducts = products.filter((product) => product.id !== parseInt(id));
+
+        if (updatedProducts.length === products.length) {
+            throw new Error('Producto no encontrado');
+        }
+
+        await fs.promises.writeFile(this.filePath, JSON.stringify(updatedProducts, null, 2));
+        return { message: `Producto con ID ${id} eliminado` };
+    }
 }
 
 module.exports = ProductManager;

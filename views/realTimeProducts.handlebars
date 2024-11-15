@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestor de Productos en Tiempo Real</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h2, h3 {
+            color: #333;
+        }
+
+        form {
+            background: #fff;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            max-width: 400px;
+            width: 100%;
+        }
+
+        form h3 {
+            margin-top: 0;
+        }
+
+        input[type="text"], input[type="number"] {
+            width: calc(100% - 20px);
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+
+        button[type="submit"] {
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            padding: 10px 15px;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+
+        button[type="submit"]:hover {
+            background-color: #0056b3;
+        }
+
+        ul {
+            list-style-type: none;
+            padding: 0;
+            max-width: 600px;
+            width: 100%;
+        }
+
+        li {
+            background: #fff;
+            margin: 10px 0;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            animation: fadeIn 0.5s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        #notification {
+            background-color: #28a745;
+            color: #fff;
+            padding: 10px;
+            border-radius: 5px;
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            display: none;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .delete-button {
+            background-color: #dc3545;
+            color: #fff;
+            border: none;
+            padding: 10px;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+
+        .delete-button:hover {
+            background-color: #c82333;
+        }
+    </style>
+</head>
+<body>
+    <h2>Productos en Tiempo Real</h2>
+
+    <ul id="product-list"></ul>
+
+    <h3>Agregar Producto (WebSocket)</h3>
+    <form id="add-product-form">
+        <input type="text" id="title" placeholder="Título" required><br>
+        <input type="text" id="description" placeholder="Descripción" ><br>
+        <input type="text" id="code" placeholder="Código" required><br>
+        <input type="number" id="price" placeholder="Precio" required><br>
+        <input type="number" id="stock" placeholder="Stock" required><br>
+        <input type="text" id="category" placeholder="Categoría" ><br>
+        <input type="text" id="thumbnails" placeholder="URL de imagen" ><br>
+        <button type="submit">Agregar Producto</button>
+    </form>
+
+    <div id="notification">Producto agregado con éxito!</div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+
+        window.onload = function() {
+            console.log('Cargando productos...');
+            fetch('/api/products')  
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Error al obtener los productos: ' + response.statusText);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Productos obtenidos:', data);
+                    updateProductList(data.products);
+                })
+                .catch(error => {
+                    console.error('Error al obtener los productos:', error);
+                    alert('Hubo un error al cargar los productos. Por favor, intenta nuevamente.');
+                });
+        };
+
+        socket.on('updateProducts', (data) => {
+            console.log('Actualización de productos recibida:', data);
+            updateProductList(data.products);
+        });
+
+        function updateProductList(products) {
+            const productList = document.getElementById('product-list');
+            productList.innerHTML = '';
+
+            if (products && products.length > 0) {
+                products.forEach(product => {
+                    const li = document.createElement('li');
+                    li.textContent = `${product.title} - $${product.price}`;
+
+                    const deleteButton = document.createElement('button');
+                    deleteButton.textContent = 'Eliminar';
+                    deleteButton.className = 'delete-button';
+                    deleteButton.onclick = () => deleteProduct(product.id);
+
+                    li.appendChild(deleteButton);
+                    productList.appendChild(li);
+                });
+            } else {
+                productList.innerHTML = '<li>No hay productos disponibles</li>';
+            }
+        }
+
+        function deleteProduct(productId) {
+            console.log('Producto a eliminar:', productId);
+            socket.emit('deleteProduct', { id: productId });
+        }
+
+        document.getElementById('add-product-form').addEventListener('submit', function(event) {
+            event.preventDefault();
+
+            const newProduct = {
+                title: document.getElementById('title').value,
+                description: document.getElementById('description').value,
+                code: document.getElementById('code').value,
+                price: document.getElementById('price').value,
+                stock: document.getElementById('stock').value,
+                category: document.getElementById('category').value,
+                thumbnails: [document.getElementById('thumbnails').value]
+            };
+
+            console.log('Producto a agregar:', newProduct);
+            socket.emit('addProduct', newProduct);
+
+            // Mostrar notificación
+            const notification = document.getElementById('notification');
+            notification.style.display = 'block';
+            setTimeout(() => {
+                notification.style.display = 'none';
+            }, 3000);
+
+            // Resetear el formulario
+            event.target.reset();
+        });
+    </script>
+</body>
+</html>
