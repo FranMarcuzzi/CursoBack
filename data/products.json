@@ -1,1 +1,14 @@
-[]
+[
+  {
+    "id": 1,
+    "title": "Pantalon",
+    "description": "NA",
+    "code": "1",
+    "price": "1",
+    "stock": "1",
+    "category": "1",
+    "thumbnails": [
+      ""
+    ]
+  }
+]

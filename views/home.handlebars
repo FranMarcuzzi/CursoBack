@@ -34,7 +34,7 @@
             margin-top: 0;
         }
 
-        input[type="text"], input[type="number"] {
+        input[type="text"], input[type="number"], select {
             width: calc(100% - 20px);
             padding: 10px;
             margin: 10px 0;
@@ -42,7 +42,7 @@
             border-radius: 5px;
         }
 
-        button[type="submit"] {
+        button {
             background-color: #007bff;
             color: #fff;
             border: none;
@@ -52,7 +52,7 @@
             transition: background-color 0.3s;
         }
 
-        button[type="submit"]:hover {
+        button:hover {
             background-color: #0056b3;
         }
 
@@ -74,27 +74,39 @@
             align-items: center;
         }
 
-        li form {
-            margin: 0;
-        }
-
         button.delete {
             background-color: #dc3545;
-            color: #fff;
-            border: none;
-            padding: 5px 10px;
-            cursor: pointer;
-            border-radius: 5px;
-            transition: background-color 0.3s;
         }
 
         button.delete:hover {
             background-color: #c82333;
         }
 
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(-10px); }
-            to { opacity: 1; transform: translateY(0); }
+        button.add-to-cart {
+            background-color: #28a745;
+        }
+
+        button.add-to-cart:hover {
+            background-color: #218838;
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        .pagination a {
+            padding: 8px 16px;
+            margin: 0 5px;
+            text-decoration: none;
+            background-color: #007bff;
+            color: white;
+            border-radius: 5px;
+        }
+
+        .pagination a:hover {
+            background-color: #0056b3;
         }
 
         #notification {
@@ -107,97 +119,99 @@
             right: 20px;
             display: none;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-            animation: fadeIn 0.5s;
         }
     </style>
 </head>
 <body>
     <h2>Lista de Productos</h2>
 
-    <form id="productForm">
-        <h3>Agregar Producto</h3>
-        <input type="text" name="title" placeholder="Título" required><br>
-        <input type="text" name="description" placeholder="Descripción" ><br>
-        <input type="text" name="code" placeholder="Código" ><br>
-        <input type="number" name="price" placeholder="Precio" required><br>
-        <input type="number" name="stock" placeholder="Stock" required><br>
-        <input type="text" name="category" placeholder="Categoría" ><br>
-        <input type="text" name="thumbnails" placeholder="URL de imagen" ><br>
-        <button type="submit">Agregar Producto</button>
+    <!-- Formulario de búsqueda -->
+    <form id="searchForm" method="GET" action="/products">
+        <h3>Buscar Productos</h3>
+        <input type="text" name="query" placeholder="Buscar por categoría o nombre" value="{{query}}">
+        <input type="number" name="limit" placeholder="Límite" value="{{limit}}" min="1">
+        <input type="number" name="page" placeholder="Página" value="{{page}}" min="1">
+        <select name="sort">
+            <option value="asc" {{#if (eq sort 'asc')}}selected{{/if}}>Ascendente por precio</option>
+            <option value="desc" {{#if (eq sort 'desc')}}selected{{/if}}>Descendente por precio</option>
+        </select>
+        <button type="submit">Buscar</button>
     </form>
 
-    <h3>Productos:</h3>
+    <!-- Lista de productos -->
     <ul id="productList">
         {{#each products}}
-            <li data-id="{{this.id}}">
+            <li data-id="{{this._id}}">
                 <span><strong>{{this.title}}</strong> - ${{this.price}}</span>
                 <button class="delete">Eliminar</button>
+                <button class="add-to-cart">Agregar al carrito</button>
             </li>
         {{/each}}
     </ul>
+
+    <!-- Paginación -->
+    <div class="pagination">
+        {{#if hasPrevPage}}
+            <a href="/products?page={{prevPage}}&limit={{limit}}&query={{query}}&sort={{sort}}">Anterior</a>
+        {{/if}}
+        <span>Página {{page}} de {{totalPages}}</span>
+        {{#if hasNextPage}}
+            <a href="/products?page={{nextPage}}&limit={{limit}}&query={{query}}&sort={{sort}}">Siguiente</a>
+        {{/if}}
+    </div>
+
     <div id="notification">Producto agregado con éxito!</div>
 
     <script>
-        document.getElementById('productForm').addEventListener('submit', function(event) {
-            event.preventDefault();
+        document.addEventListener('DOMContentLoaded', () => {
+            const productList = document.getElementById('productList');
+            const notification = document.getElementById('notification');
 
-            const formData = new FormData(event.target);
-            const productData = Object.fromEntries(formData.entries());
+            function showNotification(message = "Acción completada con éxito") {
+                notification.textContent = message;
+                notification.style.display = 'block';
+                setTimeout(() => {
+                    notification.style.display = 'none';
+                }, 3000);
+            }
 
-            fetch('/api/products', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(productData)
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data && data.id) {
-                    showNotification();
-                    const productList = document.getElementById('productList');
-                    const newProduct = document.createElement('li');
-                    newProduct.setAttribute('data-id', data.id);
-                    newProduct.innerHTML = `<span><strong>${data.title}</strong> - $${data.price}</span><button class="delete">Eliminar</button>`;
-                    productList.appendChild(newProduct);
-                    event.target.reset();
-                } else {
-                    console.error('Error al agregar el producto');
+            productList.addEventListener('click', (event) => {
+                if (event.target.classList.contains('delete')) {
+                    const productItem = event.target.closest('li');
+                    const productId = productItem.getAttribute('data-id');
+
+                    fetch(`/api/products/${productId}`, { method: 'DELETE' })
+                        .then((response) => {
+                            if (response.ok) {
+                                productItem.remove();
+                                showNotification('Producto eliminado correctamente.');
+                            } else {
+                                showNotification('Error al eliminar el producto.');
+                            }
+                        })
+                        .catch(() => {
+                            showNotification('Error al procesar la solicitud.');
+                        });
                 }
-            })
-            .catch(error => {
-                console.error('Error en la solicitud:', error);
+
+                if (event.target.classList.contains('add-to-cart')) {
+                    const productItem = event.target.closest('li');
+                    const productId = productItem.getAttribute('data-id');
+
+                    fetch(`/api/carts/cartId/product/${productId}`, { method: 'POST' })
+                        .then((response) => {
+                            if (response.ok) {
+                                showNotification('Producto agregado al carrito.');
+                            } else {
+                                showNotification('Error al agregar al carrito.');
+                            }
+                        })
+                        .catch(() => {
+                            showNotification('Error al procesar la solicitud.');
+                        });
+                }
             });
         });
-
-        document.getElementById('productList').addEventListener('click', function(event) {
-            if (event.target.classList.contains('delete')) {
-                const productItem = event.target.closest('li');
-                const productId = productItem.getAttribute('data-id');
-
-                fetch(`/api/products/${productId}`, {
-                    method: 'DELETE'
-                })
-                .then(response => {
-                    if (response.ok) {
-                        productItem.remove();
-                    } else {
-                        console.error('Error al eliminar el producto');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error en la solicitud:', error);
-                });
-            }
-        });
-
-        function showNotification() {
-            const notification = document.getElementById('notification');
-            notification.style.display = 'block';
-            setTimeout(() => {
-                notification.style.display = 'none';
-            }, 3000);
-        }
     </script>
 </body>
 </html>
