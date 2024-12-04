@@ -1,14 +1,16 @@
 [
   {
     "id": 1,
-    "title": "Pantalon",
-    "description": "NA",
-    "code": "1",
-    "price": "1",
-    "stock": "1",
-    "category": "1",
+    "title": "Laptop",
+    "description": "A powerful laptop",
+    "code": "LPT123",
+    "price": 1500,
+    "status": true,
+    "stock": 10,
+    "category": "Electronics",
     "thumbnails": [
-      ""
+      "img1.jpg",
+      "img2.jpg"
     ]
   }
 ]

@@ -6,7 +6,6 @@ class ProductManager {
         this.filePath = filePath || path.join(__dirname, '../data/products.json');
     }
 
-    // Leer productos del archivo JSON
     async getProducts() {
         try {
             const data = await fs.promises.readFile(this.filePath, 'utf-8');

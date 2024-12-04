@@ -52,12 +52,43 @@ io.on('connection', (socket) => {
     socket.emit('updateProducts', { products });
   });
 
+  // Manejar agregar producto
+  socket.on('addProduct', async (product) => {
+    try {
+      await productManager.addProduct(product);
+      const updatedProducts = await productManager.getProducts();
+      io.emit('updateProducts', { products: updatedProducts }); // Emitir actualización
+    } catch (error) {
+      console.error('Error al agregar el producto desde Socket.IO:', error);
+    }
+  });
+
+  // Manejar eliminar producto
+  socket.on('deleteProduct', async (data) => {
+    let productId;
+
+    if (typeof data === 'object' && data !== null && 'id' in data) {
+      productId = data.id; // Extrae el ID si viene dentro de un objeto
+    } else {
+      productId = data; // Si es un número directamente, úsalo
+    }
+
+    console.log('Product ID to delete:', productId); // Asegúrate de que es el valor correcto
+
+    try {
+      await productManager.deleteProduct(productId);
+      const updatedProducts = await productManager.getProducts();
+      io.emit('updateProducts', { products: updatedProducts }); // Emitir actualización
+    } catch (error) {
+      console.error('Error al eliminar el producto desde Socket.IO:', error);
+    }
+  });
+
   socket.on('disconnect', () => {
     console.log('Client disconnected');
   });
 });
 
-// Rutas HTTP
 app.get('/home', async (req, res) => {
   const products = await productManager.getProducts();
   res.render('home', { products });
@@ -67,7 +98,6 @@ app.get('/realtimeproducts', (req, res) => {
   res.render('realTimeProducts');
 });
 
-// Ruta para obtener todos los productos (API REST)
 app.get('/api/products', async (req, res) => {
   try {
     const products = await productManager.getProducts();
@@ -101,37 +131,4 @@ app.delete('/api/products/:id', async (req, res) => {
   } catch (error) {
     res.status(500).send('Error al eliminar el producto');
   }
-});
-
-// Configuración de eventos de Socket.IO
-io.on('connection', (socket) => {
-  socket.on('addProduct', async (product) => {
-    try {
-      await productManager.addProduct(product);
-      const updatedProducts = await productManager.getProducts();
-      io.emit('updateProducts', { products: updatedProducts }); // Emitir actualización
-    } catch (error) {
-      console.error('Error al agregar el producto desde Socket.IO:', error);
-    }
-  });
-
-  socket.on('deleteProduct', async (data) => {
-    let productId;
-
-    if (typeof data === 'object' && data !== null && 'id' in data) {
-      productId = data.id; // Extrae el ID si viene dentro de un objeto
-    } else {
-      productId = data; // Si es un número directamente, úsalo
-    }
-
-    console.log('Product ID to delete:', productId); // Asegúrate de que es el valor correcto
-
-    try {
-      await productManager.deleteProduct(productId);
-      const updatedProducts = await productManager.getProducts();
-      io.emit('updateProducts', { products: updatedProducts }); // Emitir actualización
-    } catch (error) {
-      console.error('Error al eliminar el producto desde Socket.IO:', error);
-    }
-  });
 });
